@@ -1,0 +1,221 @@
+---
+title: "Reproducible Research - Assignment 1"
+author: "Amy Galvin"
+date: "24 April 2016"
+output:
+  html_document:
+    keep_md: yes
+---
+
+========================================================= 
+
+#Loading and Pre-processing the Data 
+
+=========================================================
+  
+Before we begin exploring the data, we must set our working directory and read in the data. At this point, we can also load in some of the libraries we might want to use, such as dplyr, ggplot2, etc...
+
+```{r, echo = TRUE, warning = FALSE, message = FALSE}
+setwd("C://Users/Amy/Desktop/RCoursera/4-ReprodRes/Proj1")
+data<-read.csv("activity.csv")
+library(knitr)
+library(dplyr)
+library(ggplot2)
+```
+
+Let's examine the data a little bit. We will look at the dimensions of the data frame and the first 20 rows:
+
+```{r, echo = TRUE}
+dim(data)
+head(data, 20)
+```
+
+Wow! Look at all of those NA values! For right now, we will ignore them. We will deal with those guys later on...
+
+We can see that the second column contains the date of the measurement. Let's see what class each column is:
+
+```{r, echo=TRUE}
+class(data$steps)
+class(data$date)
+class(data$interval)
+```
+
+Right now, the date looks to be of the class "factor". Let's make that column of the date class instead.
+
+```{r, echo = TRUE}
+data$date<-as.Date(data$date)
+class(data$date)
+head(data)
+```
+
+Now we can see that the date variable is properly formatted to be of the date class, which will be useful later on in our analyses.
+
+====================================================================================== 
+
+#What is the mean total number of steps taken per day? 
+
+======================================================================================
+
+First, let's calculate the total number of steps taken per day. Rename the "sums" column in tot_steps. Then, take a look at the new data frame containing the total number of steps/day:
+
+```{r, echo = TRUE}
+data_date<-group_by(data, date)
+tot_steps<-summarize(data_date, sum(steps, na.rm=TRUE))
+colnames(tot_steps)[2]<-"total_steps"
+head(tot_steps)
+```
+
+Looks good! Next we want to make a histogram of the total number of steps taken each day. To do this, I will use the hist() function from the base plotting system. Keep in mind that hist() takes a numeric argument, so let's convert the "total_steps" column to be numeric rather than integer:
+
+```{r, echo = TRUE}
+tot_steps$total_steps<-as.numeric(tot_steps$total_steps)
+class(tot_steps$total_steps)
+```
+
+Now that the column is properly formatted, we can make a histogram.
+
+```{r, echo=TRUE, fig.height = 4, fig.width = 6}
+hist(tot_steps$total_steps, xlab = "Total steps per day", ylab = "Frequency", main = "Frequencies of Total Number \n of Steps per Day", col = "lightcoral")
+```
+
+Finally, we will calculate the mean and median of the total number of steps taken per day:
+
+```{r, echo = TRUE}
+steps_mean<-summarize(data_date, mean(steps, na.rm=TRUE))
+steps_calc<-mutate(steps_mean, median(data_date$steps, na.rm=TRUE))
+colnames(steps_calc)[c(2,3)] <- c("mean (total steps per day)", "median (total steps per day)")
+kable(steps_calc)
+```
+
+
+====================================================================================== 
+
+#What is the average daily activity pattern?
+
+======================================================================================
+
+In order to look at the average daily activity pattern, we will first want to group the data by interval. Then for each interval, we will find the mean number of steps taken and create a new data frame with those values. We will rename the column with the calculated means "avg_steps".
+
+```{r, echo = TRUE}
+data_int <- group_by(data, interval)
+data_int_steps <- summarize(data_int, mean(steps, na.rm=TRUE))
+colnames(data_int_steps)[2] <- "avg_steps"
+```
+
+Let's take a look at our new data frame:
+```{r, echo = TRUE}
+head(data_int_steps)
+```
+
+Next we want to make a time-series plot (type = "l") of the 5-minute interval (x-axis) and the average number of steps (y-axis) taken during that interval across all days:
+
+```{r, echo = TRUE, fig.height = 4, fig.width = 6}
+plot(data_int_steps$interval, data_int_steps$avg_steps, type = "l", xaxt = "n", xlab = "5-minute interval", ylab = "Average number of steps", main = "Average number of steps \n per 5-minute Interval")
+axis(1, at = seq(0, 2355, by = 200), las = 2)
+```
+
+Finally, we want to know which interval (on average across all days) contains the maximum number of steps. Based on our plot, it appears to be somewhere between interval 800-900. Let's get a more exact interval by subsetting the data. First we will use the max() function to find the value in the avg_steps column that is the highest. Then we will use that number to select the row containing that value:
+
+```{r, echo = TRUE}
+max_avg <- max(data_int_steps$avg_steps)
+dat_row <- data_int_steps[which(data_int_steps$avg_steps == max_avg),]
+print(dat_row)
+```
+
+Now we can see that the interval with the maximum number of steps on average is interval 835, with an average of 206 steps in that 5-minute interval. If we assume interval 0 is the interval beginning at midnight, we can calculate interval 835 to be occuring from 1:55-2:00pm. Interesting...
+
+
+====================================================================================== 
+
+#Imputing Missing Values
+
+======================================================================================
+
+There are a number of rows that have missing (NA) values, which could introduce bias into our calculations. Let's see just how many NA values we have in our data:
+
+```{r, echo = TRUE}
+sum(is.na(data))
+sum(is.na(data$steps))
+```
+
+We can see that there are 2043 missing values in our data set, and we can see that they all occur in the steps column. We will want to fill in these values. I think it would be most useful to fill the NA values in with the mean steps per interval. To do this, I will first create a new dataset, data1, that is an exact replica of the original data set. I will then use a for loop to find the NA values in the "steps" column of data 1 to change those values to be the mean number of steps within the interval in which the NA appears.  
+
+```{r, echo=TRUE}
+data1<-data
+for (i in which(is.na(data1$steps))) {
+  data1[i,"steps"] <- mean(data1[data1[, "interval"] == data1[i, "interval"], "steps"], na.rm = TRUE)
+}
+head(data1)
+```
+
+As we know from before, the first rows only contain NA values. If we compare data1 to data_int_steps (where we calculated the mean steps per interval), we can now see that we have replaced those values with the mean steps per interval, but the values that were not NA have remained as they were in the original dataset.
+
+Now let's make a histogram of the total number of steps taken per day with our new dataset and see how it compares to the original. For comparison, I have the original histogram paneled with the new one. 
+
+```{r, echo = TRUE, fig.height = 6, fig.width = 12}
+data1_date<-group_by(data1, date)
+data1_date_steps<-summarize(data1_date, sum(steps))
+colnames(data1_date_steps)[2] <- "tot_steps"
+data1_date_steps$tot_steps<-as.numeric(data1_date_steps$tot_steps)
+par(mfrow=c(1,2))
+hist(data1_date_steps$tot_steps, xlab = "Total steps per day", main = "Post-Impute: Frequencies of Total number \n of Steps per Day", col = "seagreen3")
+hist(tot_steps$total_steps, xlab = "Total steps per day", ylab = "Frequency", main = "Pre-Impute: Frequencies of Total Number \n of Steps per Day", col = "lightcoral")
+```
+
+Finally, let's find the mean and median number of steps per day and compare to the original. For comparison, the original mean and median columns have been added to this dataset.
+
+```{r, echo = TRUE}
+data1_mean <- summarize(data1_date, mean(steps))
+data1_steps<-mutate(data1_mean, median(data1_date$steps))
+colnames(data1_steps)[c(2,3)] <- c("Post-impute: mean (total steps per day)", "Post-impute: median (total steps per day)")
+data2<-merge(data1_steps, steps_calc, all = TRUE)
+colnames(data2)[c(4,5)] <- c("Pre-impute: mean (total steps per day)", "(Pre-impute: median (total steps per day)")
+kable(data2)
+```
+
+We can see that the means and medians of the values in the imputed dataset differ very little from the original values. The only places we see a change are in the mean values that were  previously listed as "NaN" in the original set. 
+
+====================================================================================== 
+
+#Do activity patterns differ between weekdays and weekends?
+
+======================================================================================
+
+Finally, we are interested in seeing if the activity pattern differs between weekdays and weekends. To do this, we will used the weekdays() function to assign each Date a corresponding day of the week. Then we will create a new factor variable indicating whether a day is a weekday or weekend.
+
+```{r, echo = TRUE}
+data3<-mutate(data1, Day = weekdays(data1$date))
+attach(data3)
+data3$daycat[Day == "Monday" | Day == "Tuesday" | Day == "Wednesday" | Day == "Thursday" | Day == "Friday"] <- "Weekday"
+data3$daycat[Day == "Saturday" | Day == "Sunday"] <- "Weekend"
+detach(data3)
+data3$daycat <- as.factor(data3$daycat)
+head(data3)
+```
+
+We can see that a new column called "daycat" was created to indicate whether a particular day was a weekday or weekend. Now that we have that, we can create a time series plot of the average number of steps taken per 5-minute interval and compare those between weekdays and weekends. 
+
+My method of doing this was maybe not the most direct, but it seemed to work in the end. If anybody has any suggestions of how to improve this last bit of code, I would greatly appreciate it!
+
+To do this, I created two separate datasets based on whether a day was a "Weekday" or "Weekend". Then for each dataset, I grouped by interval and found the mean number of steps taken per interval. Because this left me with a dataset with just the columns for "interval" and "mean steps", I then added the "daycat" column back in to the resulting dataset, specifying whether it was part of the "weekday" or "weekend" data. Finally, I merged the "weekday" and "weekend" datasets to have one final dataset from which to create my plots. 
+
+```{r, echo = TRUE, fig.height = 6, fig.width = 15}
+data3_weekdays<-data3[which(data3$daycat == "Weekday"),]
+data3_weekdays<-group_by(data3_weekdays, interval)
+data3_weekdays_mean<-summarize(data3_weekdays, mean(steps))
+data3_weekdays_mean["daycat"] <- "Weekday"
+
+data3_weekends<-data3[which(data3$daycat == "Weekend"),]
+data3_weekends<-group_by(data3_weekends, interval)
+data3_weekends_mean<-summarize(data3_weekends, mean(steps))
+data3_weekends_mean["daycat"] <- "Weekend"
+
+data3_daycat<-merge(data3_weekdays_mean, data3_weekends_mean, all = TRUE)
+colnames(data3_daycat)[2] <- "mean_steps"
+g<-ggplot(data3_daycat, aes(interval, mean_steps))
+g + geom_line() + facet_wrap(~daycat) + xlab("5-min interval") + ylab("Average number of steps")
+```
+
+Now we can see how the activity patterns differ on the weekdays and weekends, observe which intervals are more active during the week/weekend, etc... 
+
+... And that's a wrap! Any suggestions or advice for improvement are welcome and appreciated!

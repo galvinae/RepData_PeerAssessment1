@@ -1,4 +1,5 @@
 ---
+<<<<<<< HEAD
 title: "Reproducible Research - Assignment 1"
 author: "Amy Galvin"
 date: "24 April 2016"
@@ -219,3 +220,29 @@ g + geom_line() + facet_wrap(~daycat) + xlab("5-min interval") + ylab("Average n
 Now we can see how the activity patterns differ on the weekdays and weekends, observe which intervals are more active during the week/weekend, etc... 
 
 ... And that's a wrap! Any suggestions or advice for improvement are welcome and appreciated!
+=======
+title: "Reproducible Research: Peer Assessment 1"
+output: 
+  html_document:
+    keep_md: true
+---
+
+
+## Loading and preprocessing the data
+
+
+
+## What is mean total number of steps taken per day?
+
+
+
+## What is the average daily activity pattern?
+
+
+
+## Imputing missing values
+
+
+
+## Are there differences in activity patterns between weekdays and weekends?
+>>>>>>> 80edf39c3bb508fee88e3394542f967dd3fd3270
